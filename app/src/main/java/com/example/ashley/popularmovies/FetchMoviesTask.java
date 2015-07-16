@@ -93,7 +93,7 @@ public class FetchMoviesTask extends AsyncTask<String, Void, ArrayList<Movie>> {
                 }
 
                 moviesJsonStr = buffer.toString();
-                Log.v(LOG_TAG, "Movie JSON String: " + moviesJsonStr);
+                //Log.v(LOG_TAG, "Movie JSON String: " + moviesJsonStr);
             }
         } catch (MalformedURLException e) {
             Log.e(LOG_TAG, "MalformedURLException");
