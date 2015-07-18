@@ -1,7 +1,10 @@
 package com.example.ashley.popularmovies;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
 import android.util.Log;
@@ -15,6 +18,7 @@ import android.widget.AdapterView;
 import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.PopupMenu;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,8 +46,7 @@ public class MainActivityFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_main, container, false);
-
-        mMovieAdaptor = new ImageAdapter(getActivity(), movies);
+        mMovieAdaptor = new ImageAdapter(getActivity(), new ArrayList<Movie>());
         GridView gridView = (GridView) rootView.findViewById(R.id.gridview);
         gridView.setAdapter(mMovieAdaptor);
         gridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -55,7 +58,6 @@ public class MainActivityFragment extends Fragment {
                 startActivity(intent);
             }
         });
-
         return rootView;
     }
 
@@ -68,12 +70,7 @@ public class MainActivityFragment extends Fragment {
             movies = savedInstanceState.getParcelableArrayList("MOVIE_KEY");
             sortValue = savedInstanceState.getString("SORT_VALUE");
         } else {
-            try {
-                movies = new FetchMoviesTask().execute(apiKey, sortValue).get();
-            } catch (InterruptedException|ExecutionException e) {
-                Log.e(LOG_TAG, "Error executing AsyncTask");
-                e.printStackTrace();
-            }
+            updateMovies();
         }
     }
 
@@ -87,35 +84,62 @@ public class MainActivityFragment extends Fragment {
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
         if (id == R.id.action_refresh) {
-            updateMovies();
+            update();
             return true;
         } else if (id == R.id.highest_rated) {
             Log.v(LOG_TAG, "Highest Rated");
             sortValue = "vote_average.desc";
-            updateMovies();
+            update();
         } else if (id == R.id.most_popular) {
             Log.v(LOG_TAG, "Most Popular");
             sortValue = "popularity.desc";
-            updateMovies();
+            update();
         }
         return super.onOptionsItemSelected(item);
     }
 
-    private void updateMovies() {
-        FetchMoviesTask movieTask = new FetchMoviesTask();
-        try {
-            movies = movieTask.execute(apiKey, sortValue).get();
-            mMovieAdaptor.clear();
-            mMovieAdaptor.setData(movies);
-            mMovieAdaptor.notifyDataSetChanged();
-        } catch (InterruptedException|ExecutionException e) {
-            Log.e(LOG_TAG, "Error executing AsyncTask");
-            e.printStackTrace();
+    private boolean updateMovies() {
+        if (isNetworkAvailable()) {
+            FetchMoviesTask movieTask = new FetchMoviesTask();
+            try {
+                movies = movieTask.execute(apiKey, sortValue).get();
+            } catch (InterruptedException | ExecutionException e) {
+                Log.e(LOG_TAG, "Error executing AsyncTask");
+                e.printStackTrace();
+                return false;
+            }
+
+            return true;
+        } else {
+            Toast.makeText(getActivity(),
+                    "A network connection is required.", Toast.LENGTH_SHORT).show();
         }
+        return false;
+    }
+
+    private void updateAdaptor() {
+        mMovieAdaptor.clear();
+        mMovieAdaptor.setData(movies);
+        mMovieAdaptor.notifyDataSetChanged();
+    }
+
+    private void update() {
+        if (updateMovies()) {
+            updateAdaptor();
+        }
+    }
+
+    //Based on a stackoverflow snippet
+    private boolean isNetworkAvailable() {
+        ConnectivityManager connectivityManager
+                = (ConnectivityManager) getActivity().getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
     }
 
     @Override
     public void onStart() {
+        update();
         super.onStart();
     }
 
